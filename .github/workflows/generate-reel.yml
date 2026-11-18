@@ -1,0 +1,46 @@
+name: Viral Motion Graphics Reel Engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      niche_or_topic:
+        description: 'Topic likhein (Khali chhod dein toh AI khud trending viral topic chunega!)'
+        required: false
+        default: ''
+        type: string
+      voice_style:
+        description: 'Voice Style (cute_viral = Natural Viral Cute Voice, energetic_male = Punchy Male)'
+        required: true
+        default: 'cute_viral'
+        type: choice
+        options:
+          - cute_viral
+          - energetic_male
+
+jobs:
+  produce-viral-reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install High-Speed Python Video & Graphics Stack
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core
+          pip install edge-tts requests pillow numpy
+
+      - name: Generate AI Script, Natural Viral Voice, Lofi/Trap BGM & Pro SFX
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python3 audio_engine.py "${{ github.event.inputs.niche_or_topic }}" "${{ github.event.inputs.voice_style }}"
+
+      - name: Render 30FPS Broadcast-Grade Kinetic Motion Graphics
+        run: python3 render_video.py
+
+      - name: Upload Viral Reel MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: viral-reel-${{ github.run_number }}
+          path: final_reel.mp4
