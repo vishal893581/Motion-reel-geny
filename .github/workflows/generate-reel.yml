@@ -1,0 +1,48 @@
+name: Pro Motion Graphics Reel Generator
+
+on:
+  workflow_dispatch:
+    inputs:
+      voice_provider:
+        description: 'Voice Provider (edge = Free, elevenlabs = Ultra Real)'
+        required: true
+        default: 'edge'
+        type: choice
+        options:
+          - edge
+          - elevenlabs
+
+jobs:
+  build-reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & Python
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies (Playwright, FFmpeg, Fonts, TTS)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-liberation
+          pip install edge-tts requests
+          npm init -y
+          npm install playwright gsap
+          npx playwright install chromium --with-deps
+
+      - name: Generate Audio & Sound Effects
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: python3 audio_engine.py "${{ github.event.inputs.voice_provider }}"
+
+      - name: Render 60FPS Motion Frames & Compile Video
+        run: node render_video.js
+
+      - name: Upload Final Reel
+        uses: actions/upload-artifact@v4
+        with:
+          name: pro-motion-reel
+          path: final_reel.mp4
