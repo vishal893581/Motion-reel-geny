@@ -1,0 +1,52 @@
+name: Generate & Auto-Publish Hindi Reel
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Roz 3 Reels IST time ke hisaab se (UTC mein converted):
+    - cron: '30 3 * * *'   # 9:00 AM IST (Subah)
+    - cron: '30 10 * * *'  # 4:00 PM IST (Shaam)
+    - cron: '40 14 * * *'  # 8:10 PM IST (Raat)
+
+jobs:
+  build-and-publish-reel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg & Dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests google-genai edge-tts Pillow
+
+      - name: Generate Audio & Render Hindi Reel
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          python audio_engine.py
+          python render_video.py
+
+      - name: Auto-Publish Reel to @sochbadlo.hq
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: |
+          python auto_publish.py
+
+      - name: Upload Reel Backup Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-reel-${{ github.run_number }}
+          path: "**/*.mp4"
+          retention-days: 3
