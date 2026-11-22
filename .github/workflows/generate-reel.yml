@@ -1,0 +1,63 @@
+name: Generate & Auto-Publish Hindi Reel
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * *'   # 9:00 AM IST (Subah)
+    - cron: '0 10 * * *'   # 3:30 PM IST (Dopahar)
+    - cron: '0 13 * * *'   # 6:30 PM IST (Shaam)
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish-reel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg & Dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests google-genai edge-tts Pillow
+
+      - name: Generate Audio & Render Hindi Reel
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          python audio_engine.py
+          python render_video.py
+
+      - name: Auto-Publish Reel to @sochbadlo.hq
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python auto_publish.py
+
+      - name: Save Topic History
+        run: |
+          git config user.name "sochbadlo-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add used_topics.txt
+          git commit -m "chore: save used reel topic" || exit 0
+          git push
+
+      - name: Upload Reel Backup Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-reel-${{ github.run_number }}
+          path: "**/*.mp4"
+          retention-days: 3
