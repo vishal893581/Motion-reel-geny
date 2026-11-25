@@ -1,0 +1,66 @@
+name: Auto Viral Kinetic Reel Generator & Publisher (V21)
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Custom Topic (leave blank for auto unique teaching Reel)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '30 3,13 * * *'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg & Dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core
+          pip install -r requirements.txt
+
+      - name: Generate Kinetic Explainer Voice & Video
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          python3 main.py "${{ github.event.inputs.topic }}" "wise_human" "kinetic_cream"
+
+      - name: Auto Publish to Instagram
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCOUNT_ID: ${{ secrets.IG_ACCOUNT_ID }}
+          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          CATBOX_USERHASH: ${{ secrets.CATBOX_USERHASH }}
+        run: |
+          python3 auto_publish.py
+
+      - name: Save Topic History
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add used_topics.txt
+          git diff --staged --quiet || git commit -m "chore: update used topics history"
+          git push
+
+      - name: Upload Reel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: final_reel_v21
+          path: |
+            final_reel.mp4
+            caption.txt
